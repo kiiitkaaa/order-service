@@ -1,3 +1,34 @@
+server:
+  port: 8082
+
 spring:
   application:
     name: order-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      userService:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - org.springframework.web.client.RestClientException
+        ignore-exceptions:
+          - com.deshko.orderservice.exception.UserNotFoundException
+          - com.deshko.orderservice.exception.UserServiceClientException

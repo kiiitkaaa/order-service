@@ -1,0 +1,64 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-order-items-table
+      author: kiiitkaaa
+      changes:
+        - createTable:
+            tableName: order_items
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: order_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_order_items_order
+                    references: orders(id)
+              - column:
+                  name: item_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_order_items_item
+                    references: items(id)
+              - column:
+                  name: quantity
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - createIndex:
+            indexName: idx_order_items_order_id
+            tableName: order_items
+            columns:
+              - column:
+                  name: order_id
+        - createIndex:
+            indexName: idx_order_items_item_id
+            tableName: order_items
+            columns:
+              - column:
+                  name: item_id
+        - addUniqueConstraint:
+            tableName: order_items
+            columnNames: order_id, item_id
+            constraintName: uq_order_items_order_item
+        - sql:
+            sql: ALTER TABLE order_items ADD CONSTRAINT chk_order_items_quantity CHECK (quantity > 0)
