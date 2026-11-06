@@ -16,6 +16,18 @@ spring:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
+  kafka:
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.value.default.type: com.deshko.orderservice.kafka.CreatePaymentEvent
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.deshko.orderservice.kafka
+
 resilience4j:
   circuitbreaker:
     instances:
