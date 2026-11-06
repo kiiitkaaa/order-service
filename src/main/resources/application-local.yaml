@@ -3,6 +3,8 @@ spring:
     url: jdbc:postgresql://localhost:5432/${DB_NAME}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+  kafka:
+    bootstrap-servers: localhost:9092
 
 user-service:
   url: ${USER_SERVICE_URL_LOCAL}

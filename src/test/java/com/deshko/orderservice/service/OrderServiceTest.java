@@ -2,10 +2,7 @@ package com.deshko.orderservice.service;
 
 import com.deshko.orderservice.client.UserServiceClient;
 import com.deshko.orderservice.dto.*;
-import com.deshko.orderservice.entity.Item;
-import com.deshko.orderservice.entity.Order;
-import com.deshko.orderservice.entity.OrderItem;
-import com.deshko.orderservice.entity.OrderStatus;
+import com.deshko.orderservice.entity.*;
 import com.deshko.orderservice.exception.*;
 import com.deshko.orderservice.mapper.OrderItemMapper;
 import com.deshko.orderservice.mapper.OrderMapper;
@@ -13,6 +10,7 @@ import com.deshko.orderservice.repository.ItemRepository;
 import com.deshko.orderservice.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -233,17 +231,6 @@ class OrderServiceTest {
     }
 
     @Test
-    void update_invalidStatusTransition_throwsConflict() {
-        when(orderRepository.findById(5L)).thenReturn(Optional.of(order(5L, 1L, OrderStatus.DELIVERED)));
-
-        assertThatThrownBy(() -> orderService.update(5L, new OrderUpdateRequestDto(OrderStatus.NEW, null)))
-                .isInstanceOf(InvalidOrderStatusTransitionException.class);
-
-        verify(orderMapper, never()).updateEntity(any(), any());
-        verify(orderRepository, never()).save(any());
-    }
-
-    @Test
     void update_items_updatesExistingAddsNewRemovesMissingAndRecalculatesTotal() {
         Item keyboard = item(1L, "49.90");
         Item mouse = item(2L, "19.90");
@@ -299,6 +286,46 @@ class OrderServiceTest {
         when(orderRepository.softDeleteById(5L)).thenReturn(0);
 
         assertThatThrownBy(() -> orderService.delete(5L)).isInstanceOf(OrderNotFoundException.class);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "NEW, SUCCESS, PAID",
+            "NEW, FAILED, PENDING_PAYMENT",
+            "PENDING_PAYMENT, SUCCESS, PAID",
+            "PENDING_PAYMENT, FAILED, PENDING_PAYMENT"})
+    void applyPaymentResult_updatesOrderStatus(OrderStatus before, PaymentStatus payment, OrderStatus expected) {
+        Order order = order(5L, 1L, before);
+        when(orderRepository.findById(5L)).thenReturn(Optional.of(order));
+
+        orderService.applyPaymentResult(5L, payment);
+
+        assertThat(order.getStatus()).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "PAID, SUCCESS", "PAID, FAILED",
+            "CANCELLED, SUCCESS", "CANCELLED, FAILED"})
+    void applyPaymentResult_orderInFinalStatus_isIgnored(OrderStatus status, PaymentStatus payment) {
+        Order order = order(5L, 1L, status);
+        when(orderRepository.findById(5L)).thenReturn(Optional.of(order));
+
+        orderService.applyPaymentResult(5L, payment);
+
+        assertThat(order.getStatus()).isEqualTo(status);
+        verifyNoInteractions(userClient);
+    }
+
+    @Test
+    void applyPaymentResult_unknownOrder_doesNothingAndDoesNotThrow() {
+        when(orderRepository.findById(5L)).thenReturn(Optional.empty());
+
+        assertThatCode(() -> orderService.applyPaymentResult(5L, PaymentStatus.SUCCESS))
+                .doesNotThrowAnyException();
+
+        verifyNoMoreInteractions(orderRepository);
+        verifyNoInteractions(userClient);
     }
 
     private static Item item(Long id, String price) {

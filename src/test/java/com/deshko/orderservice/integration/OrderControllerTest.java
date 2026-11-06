@@ -201,15 +201,6 @@ class OrderControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void update_invalidTransition_returns409() throws Exception {
-        Order order = saveOrder(1, OrderStatus.DELIVERED, 1, 1);
-
-        mockMvc.perform(patch("/api/v1/orders/{id}", order.getId()).with(asAdmin())
-                        .contentType(JSON).content("{\"status\": \"NEW\"}"))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
     void update_ownerCanOnlyCancel() throws Exception {
         stubUserById(1, "Ivan", "Petrov", "ivan@mail.com");
         Order order = saveOrder(1, OrderStatus.NEW, 1, 1);
@@ -252,6 +243,37 @@ class OrderControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(patch("/api/v1/orders/{id}", order.getId()).with(asAdmin())
                         .contentType(JSON)
                         .content("{\"items\": [{\"itemId\": 2, \"quantity\": 1}]}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void update_invalidTransition_returns409() throws Exception {
+        Order order = saveOrder(1, OrderStatus.PAID, 1, 1);
+
+        mockMvc.perform(patch("/api/v1/orders/{id}", order.getId()).with(asAdmin())
+                        .contentType(JSON).content("{\"status\": \"NEW\"}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void update_paidOrderCannotBeCancelled_returns409() throws Exception {
+        Order order = saveOrder(1, OrderStatus.PAID, 1, 1);
+
+        mockMvc.perform(patch("/api/v1/orders/{id}", order.getId()).with(asAdmin())
+                        .contentType(JSON).content("{\"status\": \"CANCELLED\"}"))
+                .andExpect(status().isConflict());
+
+        assertThat(orderRepository.findById(order.getId()).orElseThrow().getStatus())
+                .isEqualTo(OrderStatus.PAID);
+    }
+
+    @Test
+    void update_ownerCannotCancelPaidOrder_returns409() throws Exception {
+        Order order = saveOrder(1, OrderStatus.PAID, 1, 1);
+
+        mockMvc.perform(patch("/api/v1/orders/{id}", order.getId())
+                        .with(asUser(1, "ivan@mail.com"))
+                        .contentType(JSON).content("{\"status\": \"CANCELLED\"}"))
                 .andExpect(status().isConflict());
     }
 
