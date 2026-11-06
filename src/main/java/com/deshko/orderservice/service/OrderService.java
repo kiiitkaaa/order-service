@@ -2,10 +2,7 @@ package com.deshko.orderservice.service;
 
 import com.deshko.orderservice.client.UserServiceClient;
 import com.deshko.orderservice.dto.*;
-import com.deshko.orderservice.entity.Item;
-import com.deshko.orderservice.entity.Order;
-import com.deshko.orderservice.entity.OrderItem;
-import com.deshko.orderservice.entity.OrderStatus;
+import com.deshko.orderservice.entity.*;
 import com.deshko.orderservice.exception.*;
 import com.deshko.orderservice.mapper.OrderItemMapper;
 import com.deshko.orderservice.mapper.OrderMapper;
@@ -13,6 +10,7 @@ import com.deshko.orderservice.repository.ItemRepository;
 import com.deshko.orderservice.repository.OrderRepository;
 import com.deshko.orderservice.specification.OrderSpecifications;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +21,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -102,6 +101,28 @@ public class OrderService {
     public void delete(Long id) {
         if (orderRepository.softDeleteById(id) == 0) {
             throw new OrderNotFoundException(id);
+        }
+    }
+
+    @Transactional
+    public void applyPaymentResult(Long orderId, PaymentStatus paymentStatus) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            log.warn("Order {} not found for payment event", orderId);
+            return;
+        }
+
+        OrderStatus current = order.getStatus();
+        if (current != OrderStatus.NEW && current != OrderStatus.PENDING_PAYMENT) {
+            log.warn("Ignoring payment event for order {} in status {}", orderId, current);
+            return;
+        }
+
+        if (current == OrderStatus.NEW) {
+            order.setStatus(OrderStatus.PENDING_PAYMENT);
+        }
+        if (paymentStatus == PaymentStatus.SUCCESS) {
+            order.setStatus(OrderStatus.PAID);
         }
     }
 
